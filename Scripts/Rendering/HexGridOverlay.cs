@@ -192,6 +192,7 @@ public partial class HexGridOverlay : Node2D
             DrawHexOutline(coord, SelectionColor.Lightened(0.3f), HighlightLineWidth);
         }
 
+        // TODO: Move hovered hex implementation to reduce redraw frequency
         // Draw hover highlight (highest priority)
         if (HoveredHex.HasValue)
         {
@@ -210,22 +211,12 @@ public partial class HexGridOverlay : Node2D
             DrawHexOutline(coord, GridColor, GridLineWidth);
         }
 
-        // Optionally draw empty hexes within bounds
-        if (ShowEmptyHexes && _grid.BoundsMin.HasValue && _grid.BoundsMax.HasValue)
+        // Optionally draw empty hexes within the bounding hexagonal region
+        if (ShowEmptyHexes)
         {
-            var min = _grid.BoundsMin.Value;
-            var max = _grid.BoundsMax.Value;
-
-            for (int q = min.Q; q <= max.Q; q++)
+            foreach (var coord in _grid.GetEmptyCoordsInBoundingRegion())
             {
-                for (int r = min.R; r <= max.R; r++)
-                {
-                    var coord = new HexCoord(q, r);
-                    if (!_grid.HasTile(coord))
-                    {
-                        DrawHexOutline(coord, GridColor.Darkened(0.5f), GridLineWidth * 0.5f);
-                    }
-                }
+                DrawHexOutline(coord, GridColor.Darkened(0.5f), GridLineWidth * 0.5f);
             }
         }
     }

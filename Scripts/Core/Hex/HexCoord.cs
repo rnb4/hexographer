@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 namespace Hexographer.Core.Hex;
 
+using Godot;
+
 /// <summary>
 /// Immutable struct representing a hex coordinate in axial form (q, r).
 /// The third cube coordinate s is derived as s = -q - r.
@@ -82,6 +84,16 @@ public readonly struct HexCoord : IEquatable<HexCoord>
             return (col, row);
         }
     }
+
+    /// <summary>
+    /// Creates a HexCoord from a Vector2I
+    /// </summary>
+    public static HexCoord FromVector2I(Vector2I vector) => new(vector.X, vector.Y);
+    
+    /// <summary>
+    /// Converts this HexCoord to a Vector2I
+    /// </summary>
+    public Vector2I ToVector2I() => new(Q, R);
 
     /// <summary>
     /// Returns the 6 neighboring hex coordinates.

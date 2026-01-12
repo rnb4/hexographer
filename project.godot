@@ -13,6 +13,7 @@ config_version=5
 config/name="Hexographer"
 run/main_scene="uid://0dv7d6q3wwpx"
 config/features=PackedStringArray("4.5", "C#")
+run/low_processor_mode=true
 config/icon="res://icon.svg"
 
 [display]

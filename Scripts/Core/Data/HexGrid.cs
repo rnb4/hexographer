@@ -388,4 +388,56 @@ public class HexGrid
         return coord.Q >= BoundsMin.Value.Q && coord.Q <= BoundsMax.Value.Q &&
                coord.R >= BoundsMin.Value.R && coord.R <= BoundsMax.Value.R;
     }
+
+    /// <summary>
+    /// Returns all coordinates within the bounding hexagonal region of existing tiles.
+    /// Uses all three cube coordinates (Q, R, S) to create a proper hexagonal bound,
+    /// avoiding the parallelogram that results from only using Q and R bounds.
+    /// </summary>
+    public IEnumerable<HexCoord> GetBoundingRegion()
+    {
+        if (_tiles.Count == 0)
+            yield break;
+
+        int minQ = int.MaxValue, maxQ = int.MinValue;
+        int minR = int.MaxValue, maxR = int.MinValue;
+        int minS = int.MaxValue, maxS = int.MinValue;
+
+        foreach (var coord in _tiles.Keys)
+        {
+            minQ = Math.Min(minQ, coord.Q);
+            maxQ = Math.Max(maxQ, coord.Q);
+            minR = Math.Min(minR, coord.R);
+            maxR = Math.Max(maxR, coord.R);
+            minS = Math.Min(minS, coord.S);
+            maxS = Math.Max(maxS, coord.S);
+        }
+
+        for (int q = minQ; q <= maxQ; q++)
+        {
+            for (int r = minR; r <= maxR; r++)
+            {
+                int s = -q - r;
+                if (s >= minS && s <= maxS)
+                {
+                    yield return new HexCoord(q, r);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns coordinates within the bounding region that do not have tiles.
+    /// Useful for drawing empty hex outlines in the grid overlay.
+    /// </summary>
+    public IEnumerable<HexCoord> GetEmptyCoordsInBoundingRegion()
+    {
+        foreach (var coord in GetBoundingRegion())
+        {
+            if (!_tiles.ContainsKey(coord))
+            {
+                yield return coord;
+            }
+        }
+    }
 }

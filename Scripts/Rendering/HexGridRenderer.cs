@@ -80,6 +80,7 @@ public partial class HexGridRenderer : Node2D
         // Create overlay (on top of all layers)
         _overlay = new HexGridOverlay();
         _overlay.Initialize(_layout, _grid);
+        _overlay.ShowEmptyHexes = true;
         AddChild(_overlay);
 
         _initialized = true;
