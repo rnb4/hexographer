@@ -7,7 +7,8 @@ using Hexographer.Core.Hex;
 namespace Hexographer.Rendering;
 
 /// <summary>
-/// Draws grid lines, hover highlight, and selection indicators using Godot's custom drawing.
+/// Draws grid lines, selection indicators, and brush preview using Godot's custom drawing.
+/// Hover highlighting is handled separately by HexHoverOverlay for better performance.
 /// </summary>
 public partial class HexGridOverlay : Node2D
 {
@@ -25,11 +26,6 @@ public partial class HexGridOverlay : Node2D
     public bool ShowEmptyHexes { get; set; } = false;
 
     /// <summary>
-    /// The currently hovered hex coordinate.
-    /// </summary>
-    public HexCoord? HoveredHex { get; private set; }
-
-    /// <summary>
     /// Selected hex coordinates.
     /// </summary>
     public HashSet<HexCoord> SelectedHexes { get; } = new();
@@ -43,11 +39,6 @@ public partial class HexGridOverlay : Node2D
     /// Color for grid lines.
     /// </summary>
     public Color GridColor { get; set; } = new(0.3f, 0.3f, 0.3f, 0.5f);
-
-    /// <summary>
-    /// Color for hover highlight.
-    /// </summary>
-    public Color HoverColor { get; set; } = new(1f, 1f, 0f, 0.3f);
 
     /// <summary>
     /// Color for selection highlight.
@@ -77,18 +68,6 @@ public partial class HexGridOverlay : Node2D
         _layout = layout;
         _grid = grid;
         Name = "Overlay";
-    }
-
-    /// <summary>
-    /// Sets the currently hovered hex and triggers redraw.
-    /// </summary>
-    public void SetHoveredHex(HexCoord? coord)
-    {
-        if (HoveredHex != coord)
-        {
-            HoveredHex = coord;
-            QueueRedraw();
-        }
     }
 
     /// <summary>
@@ -168,6 +147,7 @@ public partial class HexGridOverlay : Node2D
     /// </summary>
     public void Refresh()
     {
+        GD.Print("REDRAW");
         QueueRedraw();
     }
 
@@ -190,14 +170,6 @@ public partial class HexGridOverlay : Node2D
         {
             DrawHexFilled(coord, SelectionColor);
             DrawHexOutline(coord, SelectionColor.Lightened(0.3f), HighlightLineWidth);
-        }
-
-        // TODO: Move hovered hex implementation to reduce redraw frequency
-        // Draw hover highlight (highest priority)
-        if (HoveredHex.HasValue)
-        {
-            DrawHexFilled(HoveredHex.Value, HoverColor);
-            DrawHexOutline(HoveredHex.Value, HoverColor.Lightened(0.3f), HighlightLineWidth);
         }
     }
 

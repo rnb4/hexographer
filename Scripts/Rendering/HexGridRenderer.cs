@@ -15,6 +15,7 @@ public partial class HexGridRenderer : Node2D
     private HexLayout _layout = null!;
     private HexLayerRenderer[] _layerRenderers = null!;
     private HexGridOverlay _overlay = null!;
+    private HexHoverOverlay _hoverOverlay = null!;
     private bool _initialized;
 
     /// <summary>
@@ -83,6 +84,11 @@ public partial class HexGridRenderer : Node2D
         _overlay.ShowEmptyHexes = true;
         AddChild(_overlay);
 
+        // Create hover overlay (on top of everything for fast redraws)
+        _hoverOverlay = new HexHoverOverlay();
+        _hoverOverlay.Initialize(_layout);
+        AddChild(_hoverOverlay);
+
         _initialized = true;
 
         // Initial render
@@ -113,6 +119,7 @@ public partial class HexGridRenderer : Node2D
 
         _layerRenderers = null!;
         _overlay = null!;
+        _hoverOverlay = null!;
         _initialized = false;
     }
 
@@ -212,7 +219,7 @@ public partial class HexGridRenderer : Node2D
     /// </summary>
     public void SetHoveredHex(HexCoord? coord)
     {
-        _overlay?.SetHoveredHex(coord);
+        _hoverOverlay?.SetHoveredHex(coord);
     }
 
     /// <summary>

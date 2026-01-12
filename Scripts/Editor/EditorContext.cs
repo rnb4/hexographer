@@ -94,10 +94,7 @@ public class EditorContext
         if (string.IsNullOrEmpty(SelectedTileTypeId))
             return;
 
-        foreach (var coord in coords)
-        {
-            Grid.SetTileLayer(coord, ActiveLayer, SelectedTileTypeId);
-        }
+        Grid.FillRegion(coords, ActiveLayer, SelectedTileTypeId);
     }
 
     /// <summary>
