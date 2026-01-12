@@ -1,6 +1,8 @@
 using Godot;
 using Hexographer.Core.Data;
 using Hexographer.Core.Hex;
+using Hexographer.Editor;
+using Hexographer.Editor.Brushes;
 using Hexographer.Rendering;
 
 public partial class Main : Node2D
@@ -8,6 +10,8 @@ public partial class Main : Node2D
     private HexGrid _grid = null!;
     private TileRegistry _registry = null!;
     private HexGridRenderer _renderer = null!;
+    private EditorContext _context = null!;
+    private BrushManager _brushManager = null!;
 
     public override void _Ready()
     {
@@ -30,6 +34,32 @@ public partial class Main : Node2D
         _renderer.Position = viewportSize / 2;
 
         AddChild(_renderer);
+
+        // Create editor context
+        _context = new EditorContext
+        {
+            Grid = _grid,
+            Registry = _registry,
+            Renderer = _renderer,
+            SelectedTileTypeId = "grass",
+            ActiveLayer = TileLayers.Ground
+        };
+
+        // Create and initialize brush manager
+        _brushManager = new BrushManager();
+        _brushManager.Initialize(_context);
+        _brushManager.RegisterDefaultBrushes();
+        _brushManager.SetActiveBrush("Brush");
+
+        GD.Print("Hex Map Editor Ready!");
+        GD.Print("Controls:");
+        GD.Print("  B - Brush tool (paint single tiles)");
+        GD.Print("  E - Eraser tool");
+        GD.Print("  F - Fill tool (flood fill)");
+        GD.Print("  L - Line tool");
+        GD.Print("  A - Area tool (right-click to toggle shape)");
+        GD.Print("  1/2/3 - Switch layer (Ground/Features/Objects)");
+        GD.Print("  G/W/S/D/R/T - Select tile (Grass/Water/Sand/Dirt/Road/Forest)");
     }
 
     public override void _Process(double delta)
@@ -42,21 +72,101 @@ public partial class Main : Node2D
 
     public override void _Input(InputEvent @event)
     {
-        // Handle mouse clicks for testing
-        if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
+        // Handle keyboard shortcuts
+        if (@event is InputEventKey key && key.Pressed && !key.Echo)
         {
-            var clickedHex = _renderer.GetHexAtGlobalPosition(mouseButton.Position);
+            HandleKeyboardShortcuts(key.Keycode);
+        }
 
-            if (mouseButton.ButtonIndex == MouseButton.Left)
+        // Route mouse input to brush manager
+        if (@event is InputEventMouseButton mouseButton)
+        {
+            var coord = _renderer.GetHexAtGlobalPosition(mouseButton.Position);
+
+            if (mouseButton.Pressed)
             {
-                // Left click: cycle through ground tiles
-                CycleGroundTile(clickedHex);
+                _brushManager.HandleMouseDown(coord, mouseButton.ButtonIndex);
             }
-            else if (mouseButton.ButtonIndex == MouseButton.Right)
+            else
             {
-                // Right click: toggle forest on features layer
-                ToggleForest(clickedHex);
+                _brushManager.HandleMouseUp(coord, mouseButton.ButtonIndex);
             }
+        }
+        else if (@event is InputEventMouseMotion mouseMotion)
+        {
+            var coord = _renderer.GetHexAtGlobalPosition(mouseMotion.Position);
+            _brushManager.HandleMouseMove(coord);
+            _brushManager.UpdatePreview(coord);
+        }
+    }
+
+    private void HandleKeyboardShortcuts(Key keycode)
+    {
+        switch (keycode)
+        {
+            // Brush selection
+            case Key.B:
+                _brushManager.SetActiveBrush("Brush");
+                GD.Print("Brush: Paint");
+                break;
+            case Key.E:
+                _brushManager.SetActiveBrush("Eraser");
+                GD.Print("Brush: Eraser");
+                break;
+            case Key.F:
+                _brushManager.SetActiveBrush("Fill");
+                GD.Print("Brush: Fill");
+                break;
+            case Key.L:
+                _brushManager.SetActiveBrush("Line");
+                GD.Print("Brush: Line");
+                break;
+            case Key.A:
+                _brushManager.SetActiveBrush("Area");
+                GD.Print("Brush: Area");
+                break;
+
+            // Layer selection
+            case Key.Key1:
+                _context.SetActiveLayer(TileLayers.Ground);
+                GD.Print("Layer: Ground");
+                break;
+            case Key.Key2:
+                _context.SetActiveLayer(TileLayers.Features);
+                GD.Print("Layer: Features");
+                break;
+            case Key.Key3:
+                _context.SetActiveLayer(TileLayers.Objects);
+                GD.Print("Layer: Objects");
+                break;
+
+            // Tile type selection (quick access)
+            case Key.G:
+                _context.SetSelectedTileType("grass");
+                GD.Print("Tile: Grass");
+                break;
+            case Key.W:
+                _context.SetSelectedTileType("water");
+                GD.Print("Tile: Water");
+                break;
+            case Key.S:
+                _context.SetSelectedTileType("sand");
+                GD.Print("Tile: Sand");
+                break;
+            case Key.D:
+                _context.SetSelectedTileType("dirt");
+                GD.Print("Tile: Dirt");
+                break;
+            case Key.R:
+                _context.SetSelectedTileType("road");
+                _context.SetActiveLayer(TileLayers.Features);
+                GD.Print("Tile: Road (Features layer)");
+                break;
+            case Key.T:
+                _context.SetSelectedTileType("forest");
+                _context.SetActiveLayer(TileLayers.Features);
+                GD.Print("Tile: Forest (Features layer)");
+                break;
         }
     }
 
@@ -113,42 +223,5 @@ public partial class Main : Node2D
         _grid.SetTileLayer(new HexCoord(0, 2), TileLayers.Objects, "town");
         _grid.SetTileLayer(new HexCoord(3, -1), TileLayers.Objects, "castle");
         _grid.SetTileLayer(new HexCoord(-1, 3), TileLayers.Objects, "ruins");
-    }
-
-    private void CycleGroundTile(HexCoord coord)
-    {
-        string[] groundTiles = { "grass", "dirt", "sand", "stone", "water_shallow", "water" };
-
-        var currentType = _grid.GetTileLayer(coord, TileLayers.Ground);
-        int currentIndex = -1;
-
-        if (currentType != null)
-        {
-            for (int i = 0; i < groundTiles.Length; i++)
-            {
-                if (groundTiles[i] == currentType)
-                {
-                    currentIndex = i;
-                    break;
-                }
-            }
-        }
-
-        int nextIndex = (currentIndex + 1) % groundTiles.Length;
-        _grid.SetTileLayer(coord, TileLayers.Ground, groundTiles[nextIndex]);
-    }
-
-    private void ToggleForest(HexCoord coord)
-    {
-        var currentFeature = _grid.GetTileLayer(coord, TileLayers.Features);
-
-        if (currentFeature == "forest" || currentFeature == "forest_dense")
-        {
-            _grid.ClearTileLayer(coord, TileLayers.Features);
-        }
-        else
-        {
-            _grid.SetTileLayer(coord, TileLayers.Features, "forest");
-        }
     }
 }
