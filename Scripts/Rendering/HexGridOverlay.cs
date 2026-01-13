@@ -147,7 +147,6 @@ public partial class HexGridOverlay : Node2D
     /// </summary>
     public void Refresh()
     {
-        GD.Print("REDRAW");
         QueueRedraw();
     }
 

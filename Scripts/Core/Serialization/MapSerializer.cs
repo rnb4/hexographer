@@ -41,7 +41,6 @@ public static class MapSerializer
         }
 
         file.StoreString(json);
-        GD.Print($"Map saved to: {filePath}");
     }
 
     /// <summary>
@@ -96,7 +95,6 @@ public static class MapSerializer
 
         var json = file.GetAsText();
         var grid = Deserialize(json, out metadata);
-        GD.Print($"Map loaded from: {filePath}");
         return grid;
     }
 

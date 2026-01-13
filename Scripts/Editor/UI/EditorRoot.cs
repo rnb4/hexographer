@@ -37,6 +37,8 @@ public partial class EditorRoot : Control
     private string _currentFilePath = DefaultSavePath;
     private MapMetadata? _currentMetadata;
     private bool[] _layerVisibility = { true, true, true };
+    private bool _hasUnsavedChanges;
+    private ConfirmationDialog _confirmExitDialog = null!;
 
     public override void _Ready()
     {
@@ -51,8 +53,10 @@ public partial class EditorRoot : Control
 
         // Initial UI state
         UpdateUIState();
+        UpdateWindowTitle();
 
-        GD.Print("Hex Map Editor Ready!");
+        // Handle window close request
+        GetTree().AutoAcceptQuit = false;
     }
 
     private void BuildUI()
@@ -147,6 +151,20 @@ public partial class EditorRoot : Control
         };
         _fileDialog.FileSelected += OnFileDialogFileSelected;
         AddChild(_fileDialog);
+
+        // Exit confirmation dialog
+        _confirmExitDialog = new ConfirmationDialog
+        {
+            Title = "Unsaved Changes",
+            DialogText = "You have unsaved changes. Do you want to save before exiting?",
+            OkButtonText = "Save & Exit",
+            Size = new Vector2I(400, 150)
+        };
+        _confirmExitDialog.AddButton("Discard", true, "discard");
+        _confirmExitDialog.Confirmed += OnConfirmExitSave;
+        _confirmExitDialog.CustomAction += OnConfirmExitCustomAction;
+        _confirmExitDialog.Canceled += () => { }; // Do nothing, stay in editor
+        AddChild(_confirmExitDialog);
     }
 
     private MenuBar CreateMenuBar()
@@ -175,12 +193,15 @@ public partial class EditorRoot : Control
         _viewMenu = new PopupMenu { Name = "View" };
         _viewMenu.AddItem("Reset Zoom", 0);
         _viewMenu.AddSeparator();
+        _viewMenu.AddCheckItem("Show Grid (Ctrl+G)", 4);
+        _viewMenu.SetItemChecked(2, true); // Grid visible by default (index 2 after separator)
+        _viewMenu.AddSeparator();
         _viewMenu.AddCheckItem("Ground Layer", 1);
         _viewMenu.AddCheckItem("Features Layer", 2);
         _viewMenu.AddCheckItem("Objects Layer", 3);
-        _viewMenu.SetItemChecked(1, true);
-        _viewMenu.SetItemChecked(2, true);
-        _viewMenu.SetItemChecked(3, true);
+        _viewMenu.SetItemChecked(4, true);
+        _viewMenu.SetItemChecked(5, true);
+        _viewMenu.SetItemChecked(6, true);
         _viewMenu.IdPressed += OnViewMenuItemPressed;
         menuBar.AddChild(_viewMenu);
 
@@ -254,6 +275,10 @@ public partial class EditorRoot : Control
         // Editor context events
         _context.ActiveLayerChanged += OnActiveLayerChanged;
         _context.SelectedTileTypeChanged += OnSelectedTileTypeChanged;
+
+        // Grid events for dirty tracking
+        _grid.TileChanged += _ => MarkDirty();
+        _grid.TilesChanged += _ => MarkDirty();
     }
 
     private void UpdateUIState()
@@ -386,6 +411,9 @@ public partial class EditorRoot : Control
             case Key.Y:
                 OnRedoPressed();
                 break;
+            case Key.G:
+                ToggleGrid();
+                break;
         }
     }
 
@@ -467,7 +495,7 @@ public partial class EditorRoot : Control
             case 1: ShowOpenDialog(); break;
             case 2: SaveMap(); break;
             case 3: ShowSaveAsDialog(); break;
-            case 4: GetTree().Quit(); break;
+            case 4: RequestExit(); break;
         }
     }
 
@@ -484,20 +512,36 @@ public partial class EditorRoot : Control
     {
         switch (id)
         {
-            case 0:
+            case 0: // Reset Zoom
                 _viewportController.ResetView();
                 break;
-            case 1:
-            case 2:
-            case 3:
-                int layerIndex = (int)id - 1;
-                bool newState = !_viewMenu.IsItemChecked((int)id);
-                _viewMenu.SetItemChecked((int)id, newState);
-                _layerVisibility[layerIndex] = newState;
-                _renderer.SetLayerVisible(layerIndex, newState);
-                _layerPanel.SetLayerVisibility(layerIndex, newState);
+            case 4: // Toggle Grid
+                ToggleGrid();
+                break;
+            case 1: // Ground Layer
+            case 2: // Features Layer
+            case 3: // Objects Layer
+                ToggleLayerVisibility((int)id - 1);
                 break;
         }
+    }
+
+    private void ToggleGrid()
+    {
+        _renderer.ShowGrid = !_renderer.ShowGrid;
+        // Update menu checkbox (index 2 is the grid toggle after Reset Zoom and separator)
+        _viewMenu.SetItemChecked(2, _renderer.ShowGrid);
+    }
+
+    private void ToggleLayerVisibility(int layerIndex)
+    {
+        // Menu indices: 4=Ground, 5=Features, 6=Objects (after Reset, sep, Grid, sep)
+        int menuIndex = layerIndex + 4;
+        bool newState = !_viewMenu.IsItemChecked(menuIndex);
+        _viewMenu.SetItemChecked(menuIndex, newState);
+        _layerVisibility[layerIndex] = newState;
+        _renderer.SetLayerVisible(layerIndex, newState);
+        _layerPanel.SetLayerVisibility(layerIndex, newState);
     }
 
     // UI event handlers
@@ -570,6 +614,65 @@ public partial class EditorRoot : Control
         _statusBar.UpdateSelectedTile(tileId, tile?.DisplayName);
     }
 
+    // Dirty state tracking
+    private void MarkDirty()
+    {
+        if (!_hasUnsavedChanges)
+        {
+            _hasUnsavedChanges = true;
+            UpdateWindowTitle();
+        }
+    }
+
+    private void ClearDirty()
+    {
+        _hasUnsavedChanges = false;
+        UpdateWindowTitle();
+    }
+
+    private void UpdateWindowTitle()
+    {
+        var filename = System.IO.Path.GetFileName(_currentFilePath);
+        if (string.IsNullOrEmpty(filename)) filename = "Untitled";
+        var dirty = _hasUnsavedChanges ? "*" : "";
+        DisplayServer.WindowSetTitle($"Hexographer - {filename}{dirty}");
+    }
+
+    // Exit handling
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest)
+        {
+            RequestExit();
+        }
+    }
+
+    private void RequestExit()
+    {
+        if (_hasUnsavedChanges)
+        {
+            _confirmExitDialog.PopupCentered();
+        }
+        else
+        {
+            GetTree().Quit();
+        }
+    }
+
+    private void OnConfirmExitSave()
+    {
+        SaveMap();
+        GetTree().Quit();
+    }
+
+    private void OnConfirmExitCustomAction(StringName action)
+    {
+        if (action == "discard")
+        {
+            GetTree().Quit();
+        }
+    }
+
     // File operations
     private void ShowOpenDialog()
     {
@@ -604,7 +707,7 @@ public partial class EditorRoot : Control
         {
             _currentMetadata ??= new MapMetadata { Name = "My Map" };
             MapSerializer.Save(_grid, _currentFilePath, _currentMetadata);
-            GD.Print($"Map saved to: {_currentFilePath}");
+            ClearDirty();
         }
         catch (System.Exception ex)
         {
@@ -616,8 +719,13 @@ public partial class EditorRoot : Control
     {
         try
         {
-            var absolutePath = ProjectSettings.GlobalizePath(path);
-            var loadedGrid = MapSerializer.Load(absolutePath, out _currentMetadata);
+            if (!FileAccess.FileExists(path))
+            {
+                GD.PrintErr($"File not found: {path}");
+                return;
+            }
+
+            var loadedGrid = MapSerializer.Load(path, out _currentMetadata);
 
             _grid.Clear();
             foreach (var tile in loadedGrid.GetAllTiles())
@@ -631,8 +739,7 @@ public partial class EditorRoot : Control
             _currentFilePath = path;
             _undoManager.Clear();
             _renderer.RenderAll();
-
-            GD.Print($"Map loaded: {_currentMetadata?.Name ?? "Untitled"}");
+            ClearDirty();
         }
         catch (System.Exception ex)
         {
@@ -647,7 +754,7 @@ public partial class EditorRoot : Control
         _currentMetadata = new MapMetadata { Name = "Untitled Map" };
         _currentFilePath = DefaultSavePath;
         _renderer.RenderAll();
-        GD.Print("New map created");
+        ClearDirty();
     }
 
     private void CreateStarterMap()
@@ -678,5 +785,19 @@ public partial class EditorRoot : Control
         _grid.SetTileLayer(new HexCoord(0, 2), TileLayers.Objects, "town");
 
         _renderer.RenderAll();
+        // Clear dirty since this is initial state
+        _hasUnsavedChanges = false;
+    }
+
+    public override void _ExitTree()
+    {
+        // Unsubscribe from events
+        _grid.TileChanged -= _ => MarkDirty();
+        _grid.TilesChanged -= _ => MarkDirty();
+        _undoManager.HistoryChanged -= OnUndoHistoryChanged;
+        _context.ActiveLayerChanged -= OnActiveLayerChanged;
+        _context.SelectedTileTypeChanged -= OnSelectedTileTypeChanged;
+
+        base._ExitTree();
     }
 }
