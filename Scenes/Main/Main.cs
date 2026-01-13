@@ -1,6 +1,7 @@
 using Godot;
 using Hexographer.Core.Data;
 using Hexographer.Core.Hex;
+using Hexographer.Core.Serialization;
 using Hexographer.Editor;
 using Hexographer.Editor.Brushes;
 using Hexographer.Editor.UndoRedo;
@@ -8,12 +9,16 @@ using Hexographer.Rendering;
 
 public partial class Main : Node2D
 {
+    private const string DefaultSavePath = "user://map.json";
+
     private HexGrid _grid = null!;
     private TileRegistry _registry = null!;
     private HexGridRenderer _renderer = null!;
     private EditorContext _context = null!;
     private BrushManager _brushManager = null!;
     private UndoRedoManager _undoManager = null!;
+    private string _currentFilePath = DefaultSavePath;
+    private MapMetadata? _currentMetadata;
 
     public override void _Ready()
     {
@@ -59,6 +64,9 @@ public partial class Main : Node2D
 
         GD.Print("Hex Map Editor Ready!");
         GD.Print("Controls:");
+        GD.Print("  Ctrl+S - Save map");
+        GD.Print("  Ctrl+O - Open/Load map");
+        GD.Print("  Ctrl+N - New map (clear)");
         GD.Print("  Ctrl+Z - Undo");
         GD.Print("  Ctrl+Y / Ctrl+Shift+Z - Redo");
         GD.Print("  B - Brush tool (paint single tiles)");
@@ -83,26 +91,38 @@ public partial class Main : Node2D
         // Handle keyboard shortcuts
         if (@event is InputEventKey key && key.Pressed && !key.Echo)
         {
-            // Check for undo/redo with Ctrl modifier
+            // Check for Ctrl modifier shortcuts
             if (key.CtrlPressed)
             {
-                if (key.Keycode == Key.Z && !key.ShiftPressed)
+                switch (key.Keycode)
                 {
-                    // Ctrl+Z = Undo
-                    if (_undoManager.Undo())
-                    {
-                        GD.Print($"Undo: {_undoManager.NextRedoDescription}");
-                    }
-                    return;
-                }
-                else if ((key.Keycode == Key.Z && key.ShiftPressed) || key.Keycode == Key.Y)
-                {
-                    // Ctrl+Shift+Z or Ctrl+Y = Redo
-                    if (_undoManager.Redo())
-                    {
-                        GD.Print($"Redo: {_undoManager.NextUndoDescription}");
-                    }
-                    return;
+                    case Key.S:
+                        // Ctrl+S = Save
+                        SaveMap();
+                        return;
+                    case Key.O:
+                        // Ctrl+O = Open/Load
+                        LoadMap();
+                        return;
+                    case Key.N:
+                        // Ctrl+N = New map
+                        NewMap();
+                        return;
+                    case Key.Z when !key.ShiftPressed:
+                        // Ctrl+Z = Undo
+                        if (_undoManager.Undo())
+                        {
+                            GD.Print($"Undo: {_undoManager.NextRedoDescription}");
+                        }
+                        return;
+                    case Key.Z when key.ShiftPressed:
+                    case Key.Y:
+                        // Ctrl+Shift+Z or Ctrl+Y = Redo
+                        if (_undoManager.Redo())
+                        {
+                            GD.Print($"Redo: {_undoManager.NextUndoDescription}");
+                        }
+                        return;
                 }
             }
 
@@ -254,5 +274,84 @@ public partial class Main : Node2D
         _grid.SetTileLayer(new HexCoord(0, 2), TileLayers.Objects, "town");
         _grid.SetTileLayer(new HexCoord(3, -1), TileLayers.Objects, "castle");
         _grid.SetTileLayer(new HexCoord(-1, 3), TileLayers.Objects, "ruins");
+    }
+
+    private void SaveMap()
+    {
+        try
+        {
+            // Convert Godot path to actual file path
+            var absolutePath = ProjectSettings.GlobalizePath(_currentFilePath);
+
+            // Create or update metadata
+            _currentMetadata ??= new MapMetadata { Name = "My Map" };
+
+            MapSerializer.Save(_grid, absolutePath, _currentMetadata);
+            GD.Print($"Map saved to: {absolutePath}");
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"Failed to save map: {ex.Message}");
+        }
+    }
+
+    private void LoadMap()
+    {
+        try
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(_currentFilePath);
+
+            if (!FileAccess.FileExists(_currentFilePath))
+            {
+                GD.Print($"No saved map found at: {absolutePath}");
+                return;
+            }
+
+            // Load the grid
+            var loadedGrid = MapSerializer.Load(absolutePath, out _currentMetadata);
+
+            // Replace the current grid
+            _grid.Clear();
+
+            // Copy loaded data to current grid
+            foreach (var tile in loadedGrid.GetAllTiles())
+            {
+                _grid.SetTile(tile.Coord, tile);
+            }
+
+            // Update grid settings
+            _grid.Orientation = loadedGrid.Orientation;
+            _grid.HexSize = loadedGrid.HexSize;
+            _grid.LayerCount = loadedGrid.LayerCount;
+
+            // Clear undo history since we loaded a new map
+            _undoManager.Clear();
+
+            // Refresh the renderer
+            _renderer.RenderAll();
+
+            GD.Print($"Map loaded: {_currentMetadata?.Name ?? "Untitled"}");
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"Failed to load map: {ex.Message}");
+        }
+    }
+
+    private void NewMap()
+    {
+        // Clear the grid
+        _grid.Clear();
+
+        // Clear undo history
+        _undoManager.Clear();
+
+        // Reset metadata
+        _currentMetadata = new MapMetadata { Name = "Untitled Map" };
+
+        // Refresh the renderer
+        _renderer.RenderAll();
+
+        GD.Print("New map created");
     }
 }
