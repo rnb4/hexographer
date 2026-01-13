@@ -2,8 +2,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Hexographer.Core.Hex;
+using Hexographer.Editor.UndoRedo;
 
 namespace Hexographer.Editor.Brushes;
+
+using Scripts.Editor.Actions;
 
 /// <summary>
 /// The shape mode for area selection.
@@ -66,13 +69,39 @@ public class AreaBrush : BaseBrush
         if (button == MouseButton.Left && _isDragging && _startCoord.HasValue)
         {
             var area = GetArea(_startCoord.Value, coord).ToList();
-            Context.PaintTiles(area);
+
+            if (area.Count > 0)
+            {
+                // Capture before state
+                int layer = Context.ActiveLayer;
+                var beforeState = TilePaintAction.CaptureState(Context.Grid, layer, area);
+
+                // Paint the area
+                Context.PaintTiles(area);
+
+                // Capture after state
+                var afterState = TilePaintAction.CaptureState(Context.Grid, layer, area);
+
+                // Record undo action
+                var shapeType = Shape == AreaShape.Rectangle ? "rectangle" : "circle";
+                var description = area.Count == 1
+                    ? "Fill tile"
+                    : $"Fill {shapeType} ({area.Count} tiles)";
+
+                var action = new TilePaintAction(
+                    Context.Grid,
+                    layer,
+                    beforeState,
+                    afterState,
+                    description);
+
+                Context.RecordUndoAction(action);
+            }
 
             _isDragging = false;
             _startCoord = null;
             Context.ClearPreview();
 
-            // TODO: Record undo action (Phase 5)
             return true;
         }
         return false;

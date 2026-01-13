@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using Hexographer.Core.Data;
 using Hexographer.Core.Hex;
+using Hexographer.Editor.UndoRedo;
 using Hexographer.Rendering;
 
 namespace Hexographer.Editor;
+
+using Scripts.Editor.Actions;
 
 /// <summary>
 /// Shared state container passed to brushes, providing access to grid, registry, and editor state.
@@ -37,9 +40,9 @@ public class EditorContext
     public int ActiveLayer { get; set; } = TileLayers.Ground;
 
     /// <summary>
-    /// Callback for recording undoable actions (connected in Phase 5).
+    /// The undo/redo manager for recording and replaying actions.
     /// </summary>
-    public Action<object>? RecordAction { get; set; }
+    public UndoRedoManager? UndoManager { get; set; }
 
     /// <summary>
     /// Event fired when the active layer changes.
@@ -146,5 +149,21 @@ public class EditorContext
     public string? GetTileAt(HexCoord coord, int layer)
     {
         return Grid.GetTileLayer(coord, layer);
+    }
+
+    /// <summary>
+    /// Captures the current state of tile type IDs for the given coordinates on the active layer.
+    /// </summary>
+    public Dictionary<HexCoord, string?> CaptureLayerState(IEnumerable<HexCoord> coords)
+    {
+        return TilePaintAction.CaptureState(Grid, ActiveLayer, coords);
+    }
+
+    /// <summary>
+    /// Records an undoable action with the undo manager.
+    /// </summary>
+    public void RecordUndoAction(IUndoableAction action)
+    {
+        UndoManager?.RecordAction(action);
     }
 }

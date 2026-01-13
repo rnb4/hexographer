@@ -3,6 +3,7 @@ using Hexographer.Core.Data;
 using Hexographer.Core.Hex;
 using Hexographer.Editor;
 using Hexographer.Editor.Brushes;
+using Hexographer.Editor.UndoRedo;
 using Hexographer.Rendering;
 
 public partial class Main : Node2D
@@ -12,6 +13,7 @@ public partial class Main : Node2D
     private HexGridRenderer _renderer = null!;
     private EditorContext _context = null!;
     private BrushManager _brushManager = null!;
+    private UndoRedoManager _undoManager = null!;
 
     public override void _Ready()
     {
@@ -35,6 +37,9 @@ public partial class Main : Node2D
 
         AddChild(_renderer);
 
+        // Create undo/redo manager
+        _undoManager = new UndoRedoManager();
+
         // Create editor context
         _context = new EditorContext
         {
@@ -42,7 +47,8 @@ public partial class Main : Node2D
             Registry = _registry,
             Renderer = _renderer,
             SelectedTileTypeId = "grass",
-            ActiveLayer = TileLayers.Ground
+            ActiveLayer = TileLayers.Ground,
+            UndoManager = _undoManager
         };
 
         // Create and initialize brush manager
@@ -53,6 +59,8 @@ public partial class Main : Node2D
 
         GD.Print("Hex Map Editor Ready!");
         GD.Print("Controls:");
+        GD.Print("  Ctrl+Z - Undo");
+        GD.Print("  Ctrl+Y / Ctrl+Shift+Z - Redo");
         GD.Print("  B - Brush tool (paint single tiles)");
         GD.Print("  E - Eraser tool");
         GD.Print("  F - Fill tool (flood fill)");
@@ -75,6 +83,29 @@ public partial class Main : Node2D
         // Handle keyboard shortcuts
         if (@event is InputEventKey key && key.Pressed && !key.Echo)
         {
+            // Check for undo/redo with Ctrl modifier
+            if (key.CtrlPressed)
+            {
+                if (key.Keycode == Key.Z && !key.ShiftPressed)
+                {
+                    // Ctrl+Z = Undo
+                    if (_undoManager.Undo())
+                    {
+                        GD.Print($"Undo: {_undoManager.NextRedoDescription}");
+                    }
+                    return;
+                }
+                else if ((key.Keycode == Key.Z && key.ShiftPressed) || key.Keycode == Key.Y)
+                {
+                    // Ctrl+Shift+Z or Ctrl+Y = Redo
+                    if (_undoManager.Redo())
+                    {
+                        GD.Print($"Redo: {_undoManager.NextUndoDescription}");
+                    }
+                    return;
+                }
+            }
+
             HandleKeyboardShortcuts(key.Keycode);
         }
 

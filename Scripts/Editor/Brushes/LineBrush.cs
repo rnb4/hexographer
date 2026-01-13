@@ -2,8 +2,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Hexographer.Core.Hex;
+using Hexographer.Editor.UndoRedo;
 
 namespace Hexographer.Editor.Brushes;
+
+using Scripts.Editor.Actions;
 
 /// <summary>
 /// Brush that draws a line between two points.
@@ -45,13 +48,38 @@ public class LineBrush : BaseBrush
         if (button == MouseButton.Left && _isDragging && _startCoord.HasValue)
         {
             var line = HexMath.Line(_startCoord.Value, coord).ToList();
-            Context.PaintTiles(line);
+
+            if (line.Count > 0)
+            {
+                // Capture before state
+                int layer = Context.ActiveLayer;
+                var beforeState = TilePaintAction.CaptureState(Context.Grid, layer, line);
+
+                // Paint the line
+                Context.PaintTiles(line);
+
+                // Capture after state
+                var afterState = TilePaintAction.CaptureState(Context.Grid, layer, line);
+
+                // Record undo action
+                var description = line.Count == 1
+                    ? "Draw point"
+                    : $"Draw line ({line.Count} tiles)";
+
+                var action = new TilePaintAction(
+                    Context.Grid,
+                    layer,
+                    beforeState,
+                    afterState,
+                    description);
+
+                Context.RecordUndoAction(action);
+            }
 
             _isDragging = false;
             _startCoord = null;
             Context.ClearPreview();
 
-            // TODO: Record undo action (Phase 5)
             return true;
         }
         return false;

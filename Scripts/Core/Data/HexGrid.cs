@@ -139,6 +139,29 @@ public class HexGrid
     }
 
     /// <summary>
+    /// Sets the tile type on a specific layer for multiple coordinates.
+    /// Creates the tile if it doesn't exist.
+    /// Removes the tile if tileTypeId is null.
+    /// </summary>
+    public void SetTileLayerBatch(Dictionary<HexCoord, string?> state, int layer)
+    {
+        foreach (var (coord, tileTypeId) in state)
+        {
+            if (tileTypeId == null)
+            {
+                ClearTileLayer(coord, layer);
+            }
+            else
+            {
+                var tile = GetOrCreateTile(coord);
+                tile.SetLayer(layer, tileTypeId);
+            }
+        }
+        
+        TilesChanged?.Invoke(state.Keys);
+    }
+    
+    /// <summary>
     /// Gets the tile type ID at a specific layer and coordinate.
     /// </summary>
     public string? GetTileLayer(HexCoord coord, int layerIndex)

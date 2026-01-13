@@ -2,8 +2,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Hexographer.Core.Hex;
+using Hexographer.Editor.UndoRedo;
 
 namespace Hexographer.Editor.Brushes;
+
+using Scripts.Editor.Actions;
 
 /// <summary>
 /// Brush that flood fills a contiguous area of the same tile type.
@@ -22,22 +25,50 @@ public class FillBrush : BaseBrush
     {
         if (button == MouseButton.Left)
         {
-            // Use cached fill area if available and still valid
+            // Get the fill area
+            List<HexCoord> fillCoords;
             if (_lastPreviewCoord == coord && _cachedFillArea.Count > 0)
             {
-                Context.PaintTiles(_cachedFillArea);
+                fillCoords = _cachedFillArea;
             }
             else
             {
-                var fillCoords = GetFillArea(coord).ToList();
-                Context.PaintTiles(fillCoords);
+                fillCoords = GetFillArea(coord).ToList();
             }
+
+            if (fillCoords.Count == 0)
+            {
+                return true;
+            }
+
+            // Capture before state
+            int layer = Context.ActiveLayer;
+            var beforeState = TilePaintAction.CaptureState(Context.Grid, layer, fillCoords);
+
+            // Perform the fill
+            Context.PaintTiles(fillCoords);
+
+            // Capture after state
+            var afterState = TilePaintAction.CaptureState(Context.Grid, layer, fillCoords);
+
+            // Record undo action
+            var description = fillCoords.Count == 1
+                ? "Fill tile"
+                : $"Fill {fillCoords.Count} tiles";
+
+            var action = new TilePaintAction(
+                Context.Grid,
+                layer,
+                beforeState,
+                afterState,
+                description);
+
+            Context.RecordUndoAction(action);
 
             // Clear cache since the grid has changed
             _cachedFillArea.Clear();
             _lastPreviewCoord = null;
 
-            // TODO: Record undo action (Phase 5)
             return true;
         }
         return false;
