@@ -1,6 +1,7 @@
 [gd_scene load_steps=2 format=3 uid="uid://0dv7d6q3wwpx"]
 
-[ext_resource type="Script" uid="uid://b8owqv6iwehe4" path="res://Scenes/Main/Main.cs" id="1_1r6ip"]
+[ext_resource type="PackedScene" uid="uid://dxqkf8h2mspoy" path="res://Scenes/Editor/EditorRoot.tscn" id="1_editor"]
 
-[node name="Main" type="Node2D"]
-script = ExtResource("1_1r6ip")
+[node name="Main" type="Node"]
+
+[node name="EditorRoot" parent="." instance=ExtResource("1_editor")]
