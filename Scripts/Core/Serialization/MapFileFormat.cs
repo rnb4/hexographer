@@ -56,7 +56,7 @@ public class GridSettings
     public string Orientation { get; set; } = "PointyTop";
 
     [JsonPropertyName("hexSize")]
-    public float HexSize { get; set; } = 48f;
+    public float HexSize { get; set; } = 64f;
 
     [JsonPropertyName("layerCount")]
     public int LayerCount { get; set; } = 3;
