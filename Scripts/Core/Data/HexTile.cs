@@ -25,6 +25,11 @@ public class HexTile
     /// Elevation value for terrain height visualization.
     /// </summary>
     public int Elevation { get; set; }
+    
+    /// <summary>
+    /// Rotation value in radians for each layer.
+    /// </summary>
+    public float[] Rotations { get; set; }
 
     /// <summary>
     /// Custom metadata for game-specific data.
@@ -38,6 +43,7 @@ public class HexTile
     {
         Coord = coord;
         Layers = new string?[layerCount];
+        Rotations = new float[layerCount];
     }
 
     /// <summary>
@@ -118,6 +124,13 @@ public class HexTile
                 count++;
         }
         return count;
+    }
+
+    public void Rotate(int layerIndex, float degrees)
+    {
+        if (layerIndex < 0 || layerIndex >= Rotations.Length)
+            return;
+        Rotations[layerIndex] += float.DegreesToRadians(degrees);
     }
 
     /// <summary>

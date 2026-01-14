@@ -109,6 +109,14 @@ public class EditorContext
     }
 
     /// <summary>
+    /// Rotates a tile at the specified coordinate on the active layer.
+    /// </summary>
+    public void RotateTile(HexCoord coord, float degrees)
+    {
+        Grid.RotateTile(coord, degrees, ActiveLayer);
+    }
+    
+    /// <summary>
     /// Erases multiple tiles on the active layer.
     /// </summary>
     public void EraseTiles(IEnumerable<HexCoord> coords)

@@ -481,6 +481,9 @@ public partial class EditorRoot : Control
             case Key.A:
                 SelectBrush("Area");
                 break;
+            case Key.R:
+                SelectBrush("Rotate");
+                break;
 
             // Layer selection
             case Key.Key1:
@@ -509,11 +512,6 @@ public partial class EditorRoot : Control
             case Key.D:
                 _context.SetSelectedTileType("dirt");
                 _tilePalette.SelectTile("dirt");
-                break;
-            case Key.R:
-                _context.SetSelectedTileType("road");
-                _context.SetActiveLayer(TileLayers.Features);
-                _tilePalette.SelectTile("road");
                 break;
             case Key.T:
                 _context.SetSelectedTileType("forest");

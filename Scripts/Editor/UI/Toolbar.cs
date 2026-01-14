@@ -46,6 +46,7 @@ public partial class Toolbar : HBoxContainer
         AddBrushButton("Fill", "Fill (F)");
         AddBrushButton("Line", "Line (L)");
         AddBrushButton("Area", "Area (A)");
+        AddBrushButton("Rotate", "Rotate (R)");
 
         AddChild(CreateSeparator());
 

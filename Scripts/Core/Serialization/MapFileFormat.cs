@@ -79,6 +79,9 @@ public class TileData
     [JsonPropertyName("elevation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int Elevation { get; set; }
+    
+    [JsonPropertyName("rotations")]
+    public float[] Rotations { get; set; } = Array.Empty<float>();
 
     [JsonPropertyName("metadata")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

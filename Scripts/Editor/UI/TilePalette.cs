@@ -181,7 +181,7 @@ public partial class TilePalette : VBoxContainer
         {
             TooltipText = tile.DisplayName,
             ToggleMode = true,
-            CustomMinimumSize = new Vector2(48, 48),
+            CustomMinimumSize = new Vector2(64, 64),
             ClipText = true
         };
 
@@ -196,16 +196,20 @@ public partial class TilePalette : VBoxContainer
                     Texture = texture,
                     ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
                     StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                    CustomMinimumSize = new Vector2(32, 32),
-                    AnchorRight = 1,
-                    AnchorBottom = 1,
-                    OffsetLeft = 8,
-                    OffsetTop = 8,
-                    OffsetRight = -8,
-                    OffsetBottom = -8,
+                    CustomMinimumSize = new Vector2(64, 64),
+                    // OffsetLeft = 16,
+                    // OffsetTop = -16,
+                    // AnchorRight = 1,
+                    // AnchorBottom = 1,
+                    // OffsetLeft = 8,
+                    // OffsetTop = 8,
+                    // OffsetRight = -8,
+                    // OffsetBottom = -8,
                     MouseFilter = MouseFilterEnum.Ignore
                 };
                 button.AddChild(textureRect);
+                // button.ExpandIcon = true;
+                // button.Icon = texture;
             }
             else
             {

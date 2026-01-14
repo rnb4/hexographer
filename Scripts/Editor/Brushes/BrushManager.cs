@@ -61,6 +61,7 @@ public class BrushManager
         RegisterBrush(new FillBrush());
         RegisterBrush(new LineBrush());
         RegisterBrush(new AreaBrush());
+        RegisterBrush(new RotateBrush());
     }
 
     /// <summary>

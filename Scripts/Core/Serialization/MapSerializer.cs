@@ -163,6 +163,11 @@ public static class MapSerializer
             // Set elevation
             tile.Elevation = tileData.Elevation;
 
+            for (int i = 0; i < tileData.Rotations.Length && i < grid.LayerCount; i++)
+            {
+                tile.Rotations[i] = tileData.Rotations[i];
+            }
+
             // Set metadata if present
             if (tileData.Metadata != null)
             {
@@ -269,7 +274,8 @@ public static class MapSerializer
                 Q = tile.Coord.Q,
                 R = tile.Coord.R,
                 Layers = tile.Layers.ToArray(),
-                Elevation = tile.Elevation
+                Elevation = tile.Elevation,
+                Rotations = tile.Rotations.ToArray(),
             };
 
             // Only include metadata if non-empty

@@ -13,6 +13,7 @@ public partial class HexLayerRenderer : Node2D
     private int _layerIndex;
     private HexLayout _layout = null!;
     private TileRegistry _registry = null!;
+    private HexGrid _grid = null!;
     private readonly Dictionary<HexCoord, Node2D> _tileNodes = new();
 
     /// <summary>
@@ -23,11 +24,12 @@ public partial class HexLayerRenderer : Node2D
     /// <summary>
     /// Initializes the layer renderer.
     /// </summary>
-    public void Initialize(int layerIndex, HexLayout layout, TileRegistry registry)
+    public void Initialize(int layerIndex, HexLayout layout, TileRegistry registry, HexGrid grid)
     {
         _layerIndex = layerIndex;
         _layout = layout;
         _registry = registry;
+        _grid = grid;
         Name = $"Layer{layerIndex}_{TileLayers.GetLayerName(layerIndex)}";
         YSortEnabled = true;
     }
@@ -172,6 +174,9 @@ public partial class HexLayerRenderer : Node2D
         var sprite = new Sprite2D();
         sprite.Position = _layout.HexToPixel(coord);
         sprite.Texture = texture;
+
+        var rotation = _grid.GetTileRotation(coord, _layerIndex);
+        sprite.Rotation = rotation;
 
         // Scale based on the hex width in the texture vs the grid's hex width
         // pixelSize is how wide the hex is in the source texture

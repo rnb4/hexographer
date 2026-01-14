@@ -5,13 +5,14 @@ using Hexographer.Core.Hex;
 
 namespace Hexographer.Core.Data;
 
+
 /// <summary>
 /// Manages a sparse hex grid using dictionary storage.
 /// Supports infinite maps with efficient memory usage for scattered tiles.
 /// </summary>
 public class HexGrid
 {
-    private readonly Dictionary<HexCoord, HexTile> _tiles = new();
+    private readonly System.Collections.Generic.Dictionary<HexCoord, HexTile> _tiles = new();
 
     /// <summary>
     /// The hex orientation for this grid.
@@ -127,6 +128,37 @@ public class HexGrid
         return _tiles.ContainsKey(coord);
     }
 
+    /// <summary>
+    /// Gets a tiles Rotation at the specified coordinate on the specified layer.
+    /// </summary>
+    public float GetTileRotation(HexCoord coord, int layerIndex)
+    {
+        var tile = GetTile(coord);
+        if (tile != null) return tile.Rotations[layerIndex];
+        return 0;
+    }
+    
+    /// <summary>
+    /// Rotates a tile at the specified coordinate on the specified layer.
+    /// </summary>
+    public void RotateTile(HexCoord coord, float degrees, int layerIndex)
+    {
+        var tile = GetTile(coord);
+        if (tile == null) return;
+        tile.Rotate(layerIndex, degrees); 
+        TileChanged?.Invoke(coord);
+    }
+
+    public void RotateTileLayerBatch(Dictionary<HexCoord, float> state, int layerIndex)
+    {
+        foreach (var (coord, degrees) in state)
+        {
+            var tile = GetTile(coord);
+            tile?.Rotate(layerIndex, degrees);
+        }
+        TilesChanged?.Invoke(state.Keys);
+    }
+    
     /// <summary>
     /// Sets the tile type on a specific layer at the given coordinate.
     /// Creates the tile if it doesn't exist.

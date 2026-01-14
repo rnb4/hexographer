@@ -73,7 +73,7 @@ public partial class HexGridRenderer : Node2D
         for (int i = 0; i < grid.LayerCount; i++)
         {
             var layerRenderer = new HexLayerRenderer();
-            layerRenderer.Initialize(i, _layout, _registry);
+            layerRenderer.Initialize(i, _layout, _registry, _grid);
             AddChild(layerRenderer);
             _layerRenderers[i] = layerRenderer;
         }
