@@ -29,9 +29,10 @@ public static class MapSerializer
     /// <param name="grid">The grid to save.</param>
     /// <param name="filePath">The path to save to.</param>
     /// <param name="metadata">Optional metadata to include.</param>
-    public static void Save(HexGrid grid, string filePath, MapMetadata? metadata = null)
+    /// <param name="registry">Optional tile registry for saving custom tile types.</param>
+    public static void Save(HexGrid grid, string filePath, MapMetadata? metadata = null, TileRegistry? registry = null)
     {
-        var json = Serialize(grid, metadata);
+        var json = Serialize(grid, metadata, registry);
 
         using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
         if (file == null)
@@ -48,8 +49,9 @@ public static class MapSerializer
     /// </summary>
     /// <param name="grid">The grid to serialize.</param>
     /// <param name="metadata">Optional metadata to include.</param>
+    /// <param name="registry">Optional tile registry for saving custom tile types.</param>
     /// <returns>JSON string representation of the map.</returns>
-    public static string Serialize(HexGrid grid, MapMetadata? metadata = null)
+    public static string Serialize(HexGrid grid, MapMetadata? metadata = null, TileRegistry? registry = null)
     {
         var mapFile = new MapFile
         {
@@ -75,6 +77,16 @@ public static class MapSerializer
             mapFile.Metadata.Modified = DateTime.UtcNow;
         }
 
+        // Save custom tile types if registry is provided
+        if (registry != null)
+        {
+            var customTypes = SerializeCustomTileTypes(registry);
+            if (customTypes.Count > 0)
+            {
+                mapFile.CustomTileTypes = customTypes;
+            }
+        }
+
         return JsonSerializer.Serialize(mapFile, SerializerOptions);
     }
 
@@ -83,8 +95,9 @@ public static class MapSerializer
     /// </summary>
     /// <param name="filePath">The path to load from (supports Godot paths like user://).</param>
     /// <param name="metadata">Output parameter for the loaded metadata.</param>
+    /// <param name="customTileTypes">Output parameter for custom tile types in the map.</param>
     /// <returns>The loaded hex grid.</returns>
-    public static HexGrid Load(string filePath, out MapMetadata? metadata)
+    public static HexGrid Load(string filePath, out MapMetadata? metadata, out List<TileType>? customTileTypes)
     {
         using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
         if (file == null)
@@ -94,8 +107,16 @@ public static class MapSerializer
         }
 
         var json = file.GetAsText();
-        var grid = Deserialize(json, out metadata);
+        var grid = Deserialize(json, out metadata, out customTileTypes);
         return grid;
+    }
+
+    /// <summary>
+    /// Loads a hex grid from a JSON file (without custom tile types).
+    /// </summary>
+    public static HexGrid Load(string filePath, out MapMetadata? metadata)
+    {
+        return Load(filePath, out metadata, out _);
     }
 
     /// <summary>
@@ -103,8 +124,9 @@ public static class MapSerializer
     /// </summary>
     /// <param name="json">The JSON string to deserialize.</param>
     /// <param name="metadata">Output parameter for the loaded metadata.</param>
+    /// <param name="customTileTypes">Output parameter for custom tile types in the map.</param>
     /// <returns>The deserialized hex grid.</returns>
-    public static HexGrid Deserialize(string json, out MapMetadata? metadata)
+    public static HexGrid Deserialize(string json, out MapMetadata? metadata, out List<TileType>? customTileTypes)
     {
         MapFile? mapFile;
         try
@@ -153,7 +175,19 @@ public static class MapSerializer
 
         grid.RecalculateBounds();
         metadata = mapFile.Metadata;
+
+        // Deserialize custom tile types
+        customTileTypes = DeserializeCustomTileTypes(mapFile.CustomTileTypes);
+
         return grid;
+    }
+
+    /// <summary>
+    /// Deserializes a hex grid from a JSON string (without custom tile types).
+    /// </summary>
+    public static HexGrid Deserialize(string json, out MapMetadata? metadata)
+    {
+        return Deserialize(json, out metadata, out _);
     }
 
     /// <summary>
@@ -269,5 +303,66 @@ public static class MapSerializer
             "pointytop" => HexOrientation.PointyTop,
             _ => HexOrientation.PointyTop
         };
+    }
+
+    /// <summary>
+    /// Serializes custom (non-default) tile types from a registry.
+    /// </summary>
+    private static List<TileTypeData> SerializeCustomTileTypes(TileRegistry registry)
+    {
+        var tileTypes = new List<TileTypeData>();
+
+        foreach (var tileType in registry.GetCustomTileTypes())
+        {
+            tileTypes.Add(new TileTypeData
+            {
+                Id = tileType.Id,
+                DisplayName = tileType.DisplayName,
+                LayerIndex = tileType.LayerIndex,
+                Category = tileType.Category,
+                SortOrder = tileType.SortOrder,
+                PreviewColor = ColorJsonConverter.ToHexString(tileType.PreviewColor),
+                TexturePath = string.IsNullOrEmpty(tileType.TexturePath) ? null : tileType.TexturePath,
+                PixelSize = tileType.PixelSize,
+                BlocksMovement = tileType.BlocksMovement,
+                BlocksVision = tileType.BlocksVision,
+                MovementCost = tileType.MovementCost
+            });
+        }
+
+        return tileTypes;
+    }
+
+    /// <summary>
+    /// Deserializes custom tile types from the map file.
+    /// </summary>
+    private static List<TileType>? DeserializeCustomTileTypes(List<TileTypeData>? tileTypeData)
+    {
+        if (tileTypeData == null || tileTypeData.Count == 0)
+            return null;
+
+        var tileTypes = new List<TileType>();
+
+        foreach (var data in tileTypeData)
+        {
+            var tileType = new TileType
+            {
+                Id = data.Id,
+                DisplayName = data.DisplayName,
+                LayerIndex = data.LayerIndex,
+                Category = data.Category,
+                SortOrder = data.SortOrder,
+                PreviewColor = ColorJsonConverter.ParseHexColor(data.PreviewColor),
+                TexturePath = data.TexturePath ?? string.Empty,
+                PixelSize = data.PixelSize,
+                BlocksMovement = data.BlocksMovement,
+                BlocksVision = data.BlocksVision,
+                MovementCost = data.MovementCost
+            };
+
+            tileTypes.Add(tileType);
+        }
+
+        return tileTypes;
     }
 }

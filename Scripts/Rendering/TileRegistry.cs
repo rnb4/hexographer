@@ -12,6 +12,7 @@ public class TileRegistry
 {
     private readonly Dictionary<string, TileType> _tileTypes = new();
     private readonly Dictionary<string, Texture2D?> _textureCache = new();
+    private readonly HashSet<string> _defaultTileIds = new();
 
     /// <summary>
     /// Registers a tile type in the registry.
@@ -69,10 +70,33 @@ public class TileRegistry
             return null;
         }
 
-        // Try to load texture
-        var texture = GD.Load<Texture2D>(tileType.TexturePath);
+        // Try to load texture from filesystem path
+        var texture = LoadTextureFromPath(tileType.TexturePath);
         _textureCache[tileTypeId] = texture;
         return texture;
+    }
+
+    /// <summary>
+    /// Loads a texture from a filesystem path (supports external files).
+    /// </summary>
+    private static Texture2D? LoadTextureFromPath(string path)
+    {
+        try
+        {
+            // Try loading as external file first
+            var image = Image.LoadFromFile(path);
+            if (image != null)
+            {
+                return ImageTexture.CreateFromImage(image);
+            }
+
+            // Fallback to Godot resource loader for res:// paths
+            return GD.Load<Texture2D>(path);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -135,6 +159,23 @@ public class TileRegistry
     {
         _tileTypes.Clear();
         _textureCache.Clear();
+        _defaultTileIds.Clear();
+    }
+
+    /// <summary>
+    /// Checks if a tile type is a default (built-in) tile.
+    /// </summary>
+    public bool IsDefaultTile(string id)
+    {
+        return _defaultTileIds.Contains(id);
+    }
+
+    /// <summary>
+    /// Gets all custom (non-default) tile types.
+    /// </summary>
+    public IEnumerable<TileType> GetCustomTileTypes()
+    {
+        return _tileTypes.Values.Where(t => !_defaultTileIds.Contains(t.Id));
     }
 
     /// <summary>
@@ -148,8 +189,17 @@ public class TileRegistry
     /// </summary>
     public void RegisterDefaultTiles()
     {
+        // Track all default tile IDs
+        var defaultIds = new List<string>();
+
+        void RegisterDefault(TileType tile)
+        {
+            RegisterTileType(tile);
+            defaultIds.Add(tile.Id);
+        }
+
         // Ground layer (0)
-        RegisterTileType(new TileType("grass", "Grass", TileLayers.Ground)
+        RegisterDefault(new TileType("grass", "Grass", TileLayers.Ground)
         {
             PreviewColor = new Color(0.29f, 0.49f, 0.14f), // #4a7c23
             Category = "Terrain",
@@ -157,7 +207,7 @@ public class TileRegistry
             MovementCost = 1.0f
         });
 
-        RegisterTileType(new TileType("grass_tall", "Tall Grass", TileLayers.Ground)
+        RegisterDefault(new TileType("grass_tall", "Tall Grass", TileLayers.Ground)
         {
             PreviewColor = new Color(0.35f, 0.55f, 0.18f),
             Category = "Terrain",
@@ -165,7 +215,7 @@ public class TileRegistry
             MovementCost = 1.2f
         });
 
-        RegisterTileType(new TileType("dirt", "Dirt", TileLayers.Ground)
+        RegisterDefault(new TileType("dirt", "Dirt", TileLayers.Ground)
         {
             PreviewColor = new Color(0.55f, 0.39f, 0.24f), // #8c6440
             Category = "Terrain",
@@ -173,7 +223,7 @@ public class TileRegistry
             MovementCost = 1.0f
         });
 
-        RegisterTileType(new TileType("sand", "Sand", TileLayers.Ground)
+        RegisterDefault(new TileType("sand", "Sand", TileLayers.Ground)
         {
             PreviewColor = new Color(0.85f, 0.78f, 0.55f), // #d9c88c
             Category = "Terrain",
@@ -181,7 +231,7 @@ public class TileRegistry
             MovementCost = 1.3f
         });
 
-        RegisterTileType(new TileType("stone", "Stone", TileLayers.Ground)
+        RegisterDefault(new TileType("stone", "Stone", TileLayers.Ground)
         {
             PreviewColor = new Color(0.5f, 0.5f, 0.5f), // #808080
             Category = "Terrain",
@@ -189,7 +239,7 @@ public class TileRegistry
             MovementCost = 1.0f
         });
 
-        RegisterTileType(new TileType("snow", "Snow", TileLayers.Ground)
+        RegisterDefault(new TileType("snow", "Snow", TileLayers.Ground)
         {
             PreviewColor = new Color(0.95f, 0.95f, 0.98f),
             Category = "Terrain",
@@ -197,7 +247,7 @@ public class TileRegistry
             MovementCost = 1.4f
         });
 
-        RegisterTileType(new TileType("water_shallow", "Shallow Water", TileLayers.Ground)
+        RegisterDefault(new TileType("water_shallow", "Shallow Water", TileLayers.Ground)
         {
             PreviewColor = new Color(0.35f, 0.65f, 0.85f), // #59a6d9
             Category = "Water",
@@ -205,7 +255,7 @@ public class TileRegistry
             MovementCost = 2.0f
         });
 
-        RegisterTileType(new TileType("water", "Water", TileLayers.Ground)
+        RegisterDefault(new TileType("water", "Water", TileLayers.Ground)
         {
             PreviewColor = new Color(0.18f, 0.43f, 0.72f), // #2e6eb8
             Category = "Water",
@@ -213,7 +263,7 @@ public class TileRegistry
             BlocksMovement = true
         });
 
-        RegisterTileType(new TileType("water_deep", "Deep Water", TileLayers.Ground)
+        RegisterDefault(new TileType("water_deep", "Deep Water", TileLayers.Ground)
         {
             PreviewColor = new Color(0.1f, 0.25f, 0.5f), // #1a4080
             Category = "Water",
@@ -222,7 +272,7 @@ public class TileRegistry
         });
 
         // Features layer (1)
-        RegisterTileType(new TileType("forest", "Forest", TileLayers.Features)
+        RegisterDefault(new TileType("forest", "Forest", TileLayers.Features)
         {
             PreviewColor = new Color(0.1f, 0.3f, 0.1f), // #1a4d1a
             Category = "Vegetation",
@@ -231,7 +281,7 @@ public class TileRegistry
             BlocksVision = true
         });
 
-        RegisterTileType(new TileType("forest_dense", "Dense Forest", TileLayers.Features)
+        RegisterDefault(new TileType("forest_dense", "Dense Forest", TileLayers.Features)
         {
             PreviewColor = new Color(0.05f, 0.2f, 0.05f),
             Category = "Vegetation",
@@ -240,7 +290,7 @@ public class TileRegistry
             BlocksVision = true
         });
 
-        RegisterTileType(new TileType("hills", "Hills", TileLayers.Features)
+        RegisterDefault(new TileType("hills", "Hills", TileLayers.Features)
         {
             PreviewColor = new Color(0.6f, 0.5f, 0.35f),
             Category = "Elevation",
@@ -248,7 +298,7 @@ public class TileRegistry
             MovementCost = 1.5f
         });
 
-        RegisterTileType(new TileType("mountain", "Mountain", TileLayers.Features)
+        RegisterDefault(new TileType("mountain", "Mountain", TileLayers.Features)
         {
             PreviewColor = new Color(0.4f, 0.35f, 0.3f), // #665950
             Category = "Elevation",
@@ -257,7 +307,7 @@ public class TileRegistry
             BlocksVision = true
         });
 
-        RegisterTileType(new TileType("road", "Road", TileLayers.Features)
+        RegisterDefault(new TileType("road", "Road", TileLayers.Features)
         {
             PreviewColor = new Color(0.45f, 0.4f, 0.35f), // #73665a
             Category = "Infrastructure",
@@ -265,7 +315,7 @@ public class TileRegistry
             MovementCost = 0.5f
         });
 
-        RegisterTileType(new TileType("bridge", "Bridge", TileLayers.Features)
+        RegisterDefault(new TileType("bridge", "Bridge", TileLayers.Features)
         {
             PreviewColor = new Color(0.55f, 0.45f, 0.3f),
             Category = "Infrastructure",
@@ -273,7 +323,7 @@ public class TileRegistry
             MovementCost = 0.5f
         });
 
-        RegisterTileType(new TileType("river", "River", TileLayers.Features)
+        RegisterDefault(new TileType("river", "River", TileLayers.Features)
         {
             PreviewColor = new Color(0.25f, 0.55f, 0.75f),
             Category = "Water",
@@ -282,21 +332,21 @@ public class TileRegistry
         });
 
         // Objects layer (2)
-        RegisterTileType(new TileType("town", "Town", TileLayers.Objects)
+        RegisterDefault(new TileType("town", "Town", TileLayers.Objects)
         {
             PreviewColor = new Color(0.55f, 0.27f, 0.07f), // #8b4513
             Category = "Settlements",
             SortOrder = 0
         });
 
-        RegisterTileType(new TileType("city", "City", TileLayers.Objects)
+        RegisterDefault(new TileType("city", "City", TileLayers.Objects)
         {
             PreviewColor = new Color(0.7f, 0.35f, 0.1f),
             Category = "Settlements",
             SortOrder = 1
         });
 
-        RegisterTileType(new TileType("castle", "Castle", TileLayers.Objects)
+        RegisterDefault(new TileType("castle", "Castle", TileLayers.Objects)
         {
             PreviewColor = new Color(0.5f, 0.5f, 0.55f), // #80808c
             Category = "Structures",
@@ -304,14 +354,14 @@ public class TileRegistry
             BlocksVision = true
         });
 
-        RegisterTileType(new TileType("ruins", "Ruins", TileLayers.Objects)
+        RegisterDefault(new TileType("ruins", "Ruins", TileLayers.Objects)
         {
             PreviewColor = new Color(0.4f, 0.38f, 0.35f), // #66615a
             Category = "Structures",
             SortOrder = 1
         });
 
-        RegisterTileType(new TileType("tower", "Tower", TileLayers.Objects)
+        RegisterDefault(new TileType("tower", "Tower", TileLayers.Objects)
         {
             PreviewColor = new Color(0.45f, 0.45f, 0.5f),
             Category = "Structures",
@@ -319,18 +369,24 @@ public class TileRegistry
             BlocksVision = true
         });
 
-        RegisterTileType(new TileType("cave", "Cave", TileLayers.Objects)
+        RegisterDefault(new TileType("cave", "Cave", TileLayers.Objects)
         {
             PreviewColor = new Color(0.2f, 0.15f, 0.1f),
             Category = "Points of Interest",
             SortOrder = 0
         });
 
-        RegisterTileType(new TileType("shrine", "Shrine", TileLayers.Objects)
+        RegisterDefault(new TileType("shrine", "Shrine", TileLayers.Objects)
         {
             PreviewColor = new Color(0.9f, 0.85f, 0.6f),
             Category = "Points of Interest",
             SortOrder = 1
         });
+
+        // Store all default tile IDs
+        foreach (var id in defaultIds)
+        {
+            _defaultTileIds.Add(id);
+        }
     }
 }

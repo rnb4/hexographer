@@ -112,6 +112,9 @@ public class TileTypeData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TexturePath { get; set; }
 
+    [JsonPropertyName("pixelSize")]
+    public int PixelSize { get; set; } = 64;
+
     [JsonPropertyName("blocksMovement")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool BlocksMovement { get; set; }

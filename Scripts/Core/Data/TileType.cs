@@ -38,6 +38,11 @@ public class TileType
     public string TexturePath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Hex size in pixels.
+    /// </summary>
+    public int PixelSize { get; set; } = 64;
+
+    /// <summary>
     /// Optional texture region for sprite atlas usage.
     /// </summary>
     public Rect2? AtlasRegion { get; set; }

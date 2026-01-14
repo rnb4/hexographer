@@ -16,11 +16,27 @@ public partial class TilePalette : VBoxContainer
     private TileRegistry? _registry;
     private readonly Dictionary<string, Button> _tileButtons = new();
     private string? _selectedTileId;
+    private Button _editButton = null!;
 
     /// <summary>
     /// Event fired when a tile is selected.
     /// </summary>
     public event Action<string>? TileSelected;
+
+    /// <summary>
+    /// Event fired when the user wants to add a new tile.
+    /// </summary>
+    public event Action? AddTileRequested;
+
+    /// <summary>
+    /// Event fired when the user wants to batch import tiles.
+    /// </summary>
+    public event Action? BatchImportRequested;
+
+    /// <summary>
+    /// Event fired when the user wants to edit the selected tile.
+    /// </summary>
+    public event Action<string>? EditTileRequested;
 
     public override void _Ready()
     {
@@ -32,6 +48,40 @@ public partial class TilePalette : VBoxContainer
         };
         header.AddThemeFontSizeOverride("font_size", 14);
         AddChild(header);
+
+        // Management buttons
+        var buttonRow = new HBoxContainer();
+        buttonRow.AddThemeConstantOverride("separation", 4);
+        AddChild(buttonRow);
+
+        var addButton = new Button
+        {
+            Text = "+",
+            TooltipText = "Add new tile type",
+            CustomMinimumSize = new Vector2(32, 0)
+        };
+        addButton.Pressed += () => AddTileRequested?.Invoke();
+        buttonRow.AddChild(addButton);
+
+        var batchButton = new Button
+        {
+            Text = "Batch",
+            TooltipText = "Batch import tiles from images"
+        };
+        batchButton.Pressed += () => BatchImportRequested?.Invoke();
+        buttonRow.AddChild(batchButton);
+
+        var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        buttonRow.AddChild(spacer);
+
+        _editButton = new Button
+        {
+            Text = "Edit",
+            TooltipText = "Edit selected tile type",
+            Disabled = true
+        };
+        _editButton.Pressed += OnEditPressed;
+        buttonRow.AddChild(_editButton);
 
         AddChild(new HSeparator());
 
@@ -136,20 +186,39 @@ public partial class TilePalette : VBoxContainer
             ClipText = true
         };
 
-        // Create a colored rect to show preview color
-        var colorRect = new ColorRect
+        // Try to show texture if available
+        if (_registry != null && !string.IsNullOrEmpty(tile.TexturePath))
         {
-            Color = tile.PreviewColor,
-            CustomMinimumSize = new Vector2(32, 32),
-            AnchorRight = 1,
-            AnchorBottom = 1,
-            OffsetLeft = 8,
-            OffsetTop = 8,
-            OffsetRight = -8,
-            OffsetBottom = -8,
-            MouseFilter = MouseFilterEnum.Ignore
-        };
-        button.AddChild(colorRect);
+            var texture = _registry.GetTexture(tile.Id);
+            if (texture != null)
+            {
+                var textureRect = new TextureRect
+                {
+                    Texture = texture,
+                    ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                    CustomMinimumSize = new Vector2(32, 32),
+                    AnchorRight = 1,
+                    AnchorBottom = 1,
+                    OffsetLeft = 8,
+                    OffsetTop = 8,
+                    OffsetRight = -8,
+                    OffsetBottom = -8,
+                    MouseFilter = MouseFilterEnum.Ignore
+                };
+                button.AddChild(textureRect);
+            }
+            else
+            {
+                // Fallback to color if texture fails to load
+                AddColorPreview(button, tile.PreviewColor);
+            }
+        }
+        else
+        {
+            // Show preview color
+            AddColorPreview(button, tile.PreviewColor);
+        }
 
         var capturedId = tile.Id;
         button.Pressed += () => OnTileButtonPressed(capturedId);
@@ -157,10 +226,35 @@ public partial class TilePalette : VBoxContainer
         return button;
     }
 
+    private static void AddColorPreview(Button button, Color color)
+    {
+        var colorRect = new ColorRect
+        {
+            Color = color,
+            CustomMinimumSize = new Vector2(32, 32),
+            AnchorRight = 1,
+            AnchorBottom = 1,
+            OffsetLeft = 8,
+            OffsetTop = 8,
+            OffsetRight = -8,
+            OffsetBottom = -8,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        button.AddChild(colorRect);
+    }
+
     private void OnTileButtonPressed(string tileId)
     {
         SelectTile(tileId);
         TileSelected?.Invoke(tileId);
+    }
+
+    private void OnEditPressed()
+    {
+        if (!string.IsNullOrEmpty(_selectedTileId))
+        {
+            EditTileRequested?.Invoke(_selectedTileId);
+        }
     }
 
     private void OnTabChanged(long tabIndex)
@@ -180,6 +274,9 @@ public partial class TilePalette : VBoxContainer
         {
             button.ButtonPressed = (id == tileId);
         }
+
+        // Enable/disable edit button
+        _editButton.Disabled = string.IsNullOrEmpty(tileId);
 
         // Switch to the appropriate tab
         if (!string.IsNullOrEmpty(tileId) && _registry != null)

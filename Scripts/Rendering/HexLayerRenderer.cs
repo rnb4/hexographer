@@ -132,7 +132,7 @@ public partial class HexLayerRenderer : Node2D
 
         if (texture != null)
         {
-            return CreateTexturedHex(coord, texture);
+            return CreateTexturedHex(coord, texture, tileType.PixelSize);
         }
         else
         {
@@ -163,21 +163,20 @@ public partial class HexLayerRenderer : Node2D
     /// <summary>
     /// Creates a textured hex sprite at the specified coordinate.
     /// </summary>
-    private Sprite2D CreateTexturedHex(HexCoord coord, Texture2D texture)
+    /// <param name="coord">The hex coordinate to place the sprite.</param>
+    /// <param name="texture">The texture to display.</param>
+    /// <param name="pixelSize">The width of the hex in the texture (in pixels).</param>
+    private Sprite2D CreateTexturedHex(HexCoord coord, Texture2D texture, int pixelSize = 64)
     {
         var sprite = new Sprite2D();
         sprite.Position = _layout.HexToPixel(coord);
         sprite.Texture = texture;
 
-        // Scale texture to fit hex size
-        var textureSize = texture.GetSize();
-        float targetWidth = _layout.HexWidth;
-        float targetHeight = _layout.HexHeight;
-
-        sprite.Scale = new Vector2(
-            targetWidth / textureSize.X,
-            targetHeight / textureSize.Y
-        );
+        // Scale based on the hex width in the texture vs the grid's hex width
+        // pixelSize is how wide the hex is in the source texture
+        // This ensures the hex in the texture matches the hex size on screen
+        float scale = _layout.HexWidth / pixelSize;
+        sprite.Scale = new Vector2(scale, scale);
 
         return sprite;
     }

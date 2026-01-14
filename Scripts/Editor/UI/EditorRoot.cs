@@ -8,6 +8,8 @@ using Hexographer.Rendering;
 
 namespace Hexographer.Editor.UI;
 
+using System.Collections.Generic;
+
 /// <summary>
 /// Main editor scene that manages all UI components and editor systems.
 /// </summary>
@@ -32,6 +34,8 @@ public partial class EditorRoot : Control
     private SubViewport _subViewport = null!;
     private FileDialog _fileDialog = null!;
     private PopupMenu _viewMenu = null!;
+    private TileTypeEditorDialog _tileTypeEditor = null!;
+    private BatchImportDialog _batchImportDialog = null!;
 
     // State
     private string _currentFilePath = DefaultSavePath;
@@ -165,6 +169,14 @@ public partial class EditorRoot : Control
         _confirmExitDialog.CustomAction += OnConfirmExitCustomAction;
         _confirmExitDialog.Canceled += () => { }; // Do nothing, stay in editor
         AddChild(_confirmExitDialog);
+
+        // Tile type editor dialog
+        _tileTypeEditor = new TileTypeEditorDialog();
+        AddChild(_tileTypeEditor);
+
+        // Batch import dialog
+        _batchImportDialog = new BatchImportDialog();
+        AddChild(_batchImportDialog);
     }
 
     private MenuBar CreateMenuBar()
@@ -264,6 +276,16 @@ public partial class EditorRoot : Control
 
         // Tile palette events
         _tilePalette.TileSelected += OnTileSelected;
+        _tilePalette.AddTileRequested += OnAddTileRequested;
+        _tilePalette.BatchImportRequested += OnBatchImportRequested;
+        _tilePalette.EditTileRequested += OnEditTileRequested;
+
+        // Tile type editor events
+        _tileTypeEditor.TileTypeSaved += OnTileTypeSaved;
+        _tileTypeEditor.TileTypeDeleted += OnTileTypeDeleted;
+
+        // Batch import events
+        _batchImportDialog.TilesImported += OnTilesImported;
 
         // Layer panel events
         _layerPanel.LayerSelected += OnLayerSelected;
@@ -277,8 +299,8 @@ public partial class EditorRoot : Control
         _context.SelectedTileTypeChanged += OnSelectedTileTypeChanged;
 
         // Grid events for dirty tracking
-        _grid.TileChanged += _ => MarkDirty();
-        _grid.TilesChanged += _ => MarkDirty();
+        _grid.TileChanged += OnTileChanged;
+        _grid.TilesChanged += OnTilesChanged;
     }
 
     private void UpdateUIState()
@@ -614,6 +636,57 @@ public partial class EditorRoot : Control
         _statusBar.UpdateSelectedTile(tileId, tile?.DisplayName);
     }
 
+    // Tile type editor handlers
+    private void OnAddTileRequested()
+    {
+        _tileTypeEditor.ShowNew(id => !_registry.HasTileType(id));
+    }
+
+    private void OnBatchImportRequested()
+    {
+        _batchImportDialog.ShowDialog(id => !_registry.HasTileType(id));
+    }
+
+    private void OnEditTileRequested(string tileId)
+    {
+        var tile = _registry.GetTileType(tileId);
+        if (tile != null)
+        {
+            _tileTypeEditor.ShowEdit(tile, id => id == tileId || !_registry.HasTileType(id));
+        }
+    }
+
+    private void OnTileTypeSaved(TileType tile)
+    {
+        _registry.RegisterTileType(tile);
+        _registry.ClearTextureCache();
+        _tilePalette.PopulatePalette(_registry);
+        _tilePalette.SelectTile(tile.Id);
+        _renderer.RenderAll();
+        MarkDirty();
+    }
+
+    private void OnTileTypeDeleted(string tileId)
+    {
+        _registry.UnregisterTileType(tileId);
+        _tilePalette.PopulatePalette(_registry);
+        _tilePalette.SelectTile(null);
+        _renderer.RenderAll();
+        MarkDirty();
+    }
+
+    private void OnTilesImported(System.Collections.Generic.List<TileType> tiles)
+    {
+        foreach (var tile in tiles)
+        {
+            _registry.RegisterTileType(tile);
+        }
+        _registry.ClearTextureCache();
+        _tilePalette.PopulatePalette(_registry);
+        _renderer.RenderAll();
+        MarkDirty();
+    }
+
     // Dirty state tracking
     private void MarkDirty()
     {
@@ -706,7 +779,7 @@ public partial class EditorRoot : Control
         try
         {
             _currentMetadata ??= new MapMetadata { Name = "My Map" };
-            MapSerializer.Save(_grid, _currentFilePath, _currentMetadata);
+            MapSerializer.Save(_grid, _currentFilePath, _currentMetadata, _registry);
             ClearDirty();
         }
         catch (System.Exception ex)
@@ -725,7 +798,21 @@ public partial class EditorRoot : Control
                 return;
             }
 
-            var loadedGrid = MapSerializer.Load(path, out _currentMetadata);
+            var loadedGrid = MapSerializer.Load(path, out _currentMetadata, out var customTileTypes);
+
+            // Clear existing custom tiles and register new ones
+            // First, re-initialize registry with defaults
+            _registry.Clear();
+            _registry.RegisterDefaultTiles();
+
+            // Add custom tile types from the map
+            if (customTileTypes != null)
+            {
+                foreach (var tile in customTileTypes)
+                {
+                    _registry.RegisterTileType(tile);
+                }
+            }
 
             _grid.Clear();
             foreach (var tile in loadedGrid.GetAllTiles())
@@ -738,6 +825,7 @@ public partial class EditorRoot : Control
 
             _currentFilePath = path;
             _undoManager.Clear();
+            _tilePalette.PopulatePalette(_registry);
             _renderer.RenderAll();
             ClearDirty();
         }
@@ -751,6 +839,12 @@ public partial class EditorRoot : Control
     {
         _grid.Clear();
         _undoManager.Clear();
+
+        // Reset registry to default tiles only
+        _registry.Clear();
+        _registry.RegisterDefaultTiles();
+        _tilePalette.PopulatePalette(_registry);
+
         _currentMetadata = new MapMetadata { Name = "Untitled Map" };
         _currentFilePath = DefaultSavePath;
         _renderer.RenderAll();
@@ -789,11 +883,21 @@ public partial class EditorRoot : Control
         _hasUnsavedChanges = false;
     }
 
+    private void OnTileChanged(HexCoord _)
+    {
+        MarkDirty();
+    }
+
+    private void OnTilesChanged(IEnumerable<HexCoord> _)
+    {
+        MarkDirty();
+    }
+
     public override void _ExitTree()
     {
         // Unsubscribe from events
-        _grid.TileChanged -= _ => MarkDirty();
-        _grid.TilesChanged -= _ => MarkDirty();
+        _grid.TileChanged -= OnTileChanged;
+        _grid.TilesChanged -= OnTilesChanged;
         _undoManager.HistoryChanged -= OnUndoHistoryChanged;
         _context.ActiveLayerChanged -= OnActiveLayerChanged;
         _context.SelectedTileTypeChanged -= OnSelectedTileTypeChanged;
