@@ -231,4 +231,13 @@ public partial class HexGridOverlay : Node2D
         }
         return corners;
     }
+
+    /// <summary>
+    /// Updates the layout reference (used when orientation changes).
+    /// </summary>
+    public void UpdateLayout(HexLayout layout)
+    {
+        _layout = layout;
+        QueueRedraw();
+    }
 }

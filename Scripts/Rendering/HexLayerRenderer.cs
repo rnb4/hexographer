@@ -29,6 +29,7 @@ public partial class HexLayerRenderer : Node2D
         _layout = layout;
         _registry = registry;
         Name = $"Layer{layerIndex}_{TileLayers.GetLayerName(layerIndex)}";
+        YSortEnabled = true;
     }
 
     /// <summary>
@@ -192,5 +193,13 @@ public partial class HexLayerRenderer : Node2D
     public bool HasRenderedTile(HexCoord coord)
     {
         return _tileNodes.ContainsKey(coord);
+    }
+
+    /// <summary>
+    /// Updates the layout reference (used when orientation changes).
+    /// </summary>
+    public void UpdateLayout(HexLayout layout)
+    {
+        _layout = layout;
     }
 }

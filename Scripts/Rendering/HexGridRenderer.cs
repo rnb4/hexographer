@@ -223,6 +223,29 @@ public partial class HexGridRenderer : Node2D
     }
 
     /// <summary>
+    /// Updates the hex orientation and re-renders all tiles.
+    /// </summary>
+    public void SetOrientation(HexOrientation orientation)
+    {
+        if (!_initialized)
+            return;
+
+        _layout = new HexLayout(orientation, _layout.Size, _layout.Origin);
+
+        // Update all layer renderers with new layout
+        foreach (var layer in _layerRenderers)
+        {
+            layer.UpdateLayout(_layout);
+        }
+
+        // Update overlays
+        _overlay?.UpdateLayout(_layout);
+        _hoverOverlay?.UpdateLayout(_layout);
+
+        RenderAll();
+    }
+
+    /// <summary>
     /// Sets the selected hex coordinates.
     /// </summary>
     public void SetSelection(IEnumerable<HexCoord> coords)

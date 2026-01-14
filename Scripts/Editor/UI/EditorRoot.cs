@@ -215,6 +215,10 @@ public partial class EditorRoot : Control
         _viewMenu.SetItemChecked(4, true);
         _viewMenu.SetItemChecked(5, true);
         _viewMenu.SetItemChecked(6, true);
+        _viewMenu.AddSeparator();
+        _viewMenu.AddCheckItem("Pointy Top Hexes", 7);
+        _viewMenu.AddCheckItem("Flat Top Hexes", 8);
+        _viewMenu.SetItemChecked(8, true); // Pointy top default (index 8 after sep)
         _viewMenu.IdPressed += OnViewMenuItemPressed;
         menuBar.AddChild(_viewMenu);
 
@@ -547,6 +551,12 @@ public partial class EditorRoot : Control
             case 3: // Objects Layer
                 ToggleLayerVisibility((int)id - 1);
                 break;
+            case 7: // Pointy Top Hexes
+                SetOrientation(HexOrientation.PointyTop);
+                break;
+            case 8: // Flat Top Hexes
+                SetOrientation(HexOrientation.FlatTop);
+                break;
         }
     }
 
@@ -566,6 +576,28 @@ public partial class EditorRoot : Control
         _layerVisibility[layerIndex] = newState;
         _renderer.SetLayerVisible(layerIndex, newState);
         _layerPanel.SetLayerVisibility(layerIndex, newState);
+    }
+
+    private void SetOrientation(HexOrientation orientation)
+    {
+        if (_grid.Orientation == orientation)
+            return;
+
+        _grid.Orientation = orientation;
+        _renderer.SetOrientation(orientation);
+
+        // Update menu checkboxes (radio-button style)
+        // Menu indices: 8=Pointy Top, 9=Flat Top (after layers and sep)
+        _viewMenu.SetItemChecked(8, orientation == HexOrientation.PointyTop);
+        _viewMenu.SetItemChecked(9, orientation == HexOrientation.FlatTop);
+
+        MarkDirty();
+    }
+
+    private void UpdateOrientationMenuState()
+    {
+        _viewMenu.SetItemChecked(8, _grid.Orientation == HexOrientation.PointyTop);
+        _viewMenu.SetItemChecked(9, _grid.Orientation == HexOrientation.FlatTop);
     }
 
     // UI event handlers
@@ -844,6 +876,10 @@ public partial class EditorRoot : Control
             _grid.Orientation = loadedGrid.Orientation;
             _grid.HexSize = loadedGrid.HexSize;
             _grid.LayerCount = loadedGrid.LayerCount;
+
+            // Update renderer orientation to match loaded map
+            _renderer.SetOrientation(_grid.Orientation);
+            UpdateOrientationMenuState();
 
             _currentFilePath = path;
             _undoManager.Clear();
