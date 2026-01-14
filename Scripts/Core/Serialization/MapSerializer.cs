@@ -365,4 +365,42 @@ public static class MapSerializer
 
         return tileTypes;
     }
+
+    /// <summary>
+    /// Saves custom tile types to a JSON file.
+    /// </summary>
+    public static void SaveCustomTileTypes(TileRegistry registry, string filePath)
+    {
+        var customTypes = SerializeCustomTileTypes(registry);
+        if (customTypes.Count == 0)
+        {
+            // Delete file if no custom types
+            if (FileAccess.FileExists(filePath))
+            {
+                DirAccess.RemoveAbsolute(filePath);
+            }
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(customTypes, SerializerOptions);
+        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
+        file?.StoreString(json);
+    }
+
+    /// <summary>
+    /// Loads custom tile types from a JSON file.
+    /// </summary>
+    public static List<TileType>? LoadCustomTileTypes(string filePath)
+    {
+        if (!FileAccess.FileExists(filePath))
+            return null;
+
+        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
+        if (file == null)
+            return null;
+
+        var json = file.GetAsText();
+        var data = JsonSerializer.Deserialize<List<TileTypeData>>(json, SerializerOptions);
+        return DeserializeCustomTileTypes(data);
+    }
 }

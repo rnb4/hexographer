@@ -16,6 +16,7 @@ using System.Collections.Generic;
 public partial class EditorRoot : Control
 {
     private const string DefaultSavePath = "user://map.json";
+    private const string CustomTileTypesPath = "user://custom_tiles.json";
 
     // Core systems
     private HexGrid _grid = null!;
@@ -225,6 +226,7 @@ public partial class EditorRoot : Control
         // Create tile registry
         _registry = new TileRegistry();
         _registry.RegisterDefaultTiles();
+        LoadGlobalCustomTiles();
 
         // Create hex grid
         _grid = new HexGrid(HexOrientation.PointyTop);
@@ -664,6 +666,7 @@ public partial class EditorRoot : Control
         _tilePalette.SelectTile(tile.Id);
         _renderer.RenderAll();
         MarkDirty();
+        SaveGlobalCustomTiles();
     }
 
     private void OnTileTypeDeleted(string tileId)
@@ -673,6 +676,7 @@ public partial class EditorRoot : Control
         _tilePalette.SelectTile(null);
         _renderer.RenderAll();
         MarkDirty();
+        SaveGlobalCustomTiles();
     }
 
     private void OnTilesImported(System.Collections.Generic.List<TileType> tiles)
@@ -685,6 +689,7 @@ public partial class EditorRoot : Control
         _tilePalette.PopulatePalette(_registry);
         _renderer.RenderAll();
         MarkDirty();
+        SaveGlobalCustomTiles();
     }
 
     // Dirty state tracking
@@ -788,6 +793,23 @@ public partial class EditorRoot : Control
         }
     }
 
+    private void LoadGlobalCustomTiles()
+    {
+        var customTiles = MapSerializer.LoadCustomTileTypes(CustomTileTypesPath);
+        if (customTiles != null)
+        {
+            foreach (var tile in customTiles)
+            {
+                _registry.RegisterTileType(tile);
+            }
+        }
+    }
+
+    private void SaveGlobalCustomTiles()
+    {
+        MapSerializer.SaveCustomTileTypes(_registry, CustomTileTypesPath);
+    }
+
     private void LoadMap(string path)
     {
         try
@@ -840,9 +862,10 @@ public partial class EditorRoot : Control
         _grid.Clear();
         _undoManager.Clear();
 
-        // Reset registry to default tiles only
+        // Reset registry but keep global custom tiles
         _registry.Clear();
         _registry.RegisterDefaultTiles();
+        LoadGlobalCustomTiles();
         _tilePalette.PopulatePalette(_registry);
 
         _currentMetadata = new MapMetadata { Name = "Untitled Map" };
