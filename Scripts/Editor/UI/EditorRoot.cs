@@ -9,6 +9,7 @@ using Hexographer.Rendering;
 namespace Hexographer.Editor.UI;
 
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Main editor scene that manages all UI components and editor systems.
@@ -34,6 +35,7 @@ public partial class EditorRoot : Control
     private ViewportController _viewportController = null!;
     private SubViewport _subViewport = null!;
     private FileDialog _fileDialog = null!;
+    private FileDialog _pngFileDialog = null!;
     private PopupMenu _viewMenu = null!;
     private TileTypeEditorDialog _tileTypeEditor = null!;
     private BatchImportDialog _batchImportDialog = null!;
@@ -157,6 +159,18 @@ public partial class EditorRoot : Control
         _fileDialog.FileSelected += OnFileDialogFileSelected;
         AddChild(_fileDialog);
 
+        // PNG export dialog
+        _pngFileDialog = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.SaveFile,
+            Access = FileDialog.AccessEnum.Filesystem,
+            Filters = new[] { "*.png ; PNG Images" },
+            Title = "Export as PNG",
+            Size = new Vector2I(800, 600)
+        };
+        _pngFileDialog.FileSelected += OnPngExportFileSelected;
+        AddChild(_pngFileDialog);
+
         // Exit confirmation dialog
         _confirmExitDialog = new ConfirmationDialog
         {
@@ -190,6 +204,8 @@ public partial class EditorRoot : Control
         fileMenu.AddItem("Open... (Ctrl+O)", 1);
         fileMenu.AddItem("Save (Ctrl+S)", 2);
         fileMenu.AddItem("Save As... (Ctrl+Shift+S)", 3);
+        fileMenu.AddSeparator();
+        fileMenu.AddItem("Export as PNG...", 5);
         fileMenu.AddSeparator();
         fileMenu.AddItem("Exit", 4);
         fileMenu.IdPressed += OnFileMenuItemPressed;
@@ -524,6 +540,7 @@ public partial class EditorRoot : Control
             case 2: SaveMap(); break;
             case 3: ShowSaveAsDialog(); break;
             case 4: RequestExit(); break;
+            case 5: ShowExportPngDialog(); break;
         }
     }
 
@@ -822,6 +839,90 @@ public partial class EditorRoot : Control
         catch (System.Exception ex)
         {
             GD.PrintErr($"Failed to save map: {ex.Message}");
+        }
+    }
+
+    private void ShowExportPngDialog()
+    {
+        if (!_grid.GetAllCoords().Any())
+        {
+            GD.PrintErr("Cannot export empty map");
+            return;
+        }
+        _pngFileDialog.PopupCentered();
+    }
+
+    private void OnPngExportFileSelected(string path)
+    {
+        ExportMapToPng(path);
+    }
+
+    private async void ExportMapToPng(string path)
+    {
+        var allCoords = _grid.GetAllCoords().ToList();
+        if (allCoords.Count == 0)
+            return;
+
+        var layout = _renderer.Layout;
+        float minX = float.MaxValue, minY = float.MaxValue;
+        float maxX = float.MinValue, maxY = float.MinValue;
+
+        foreach (var coord in allCoords)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                var corner = layout.HexCorner(coord, i);
+                minX = Mathf.Min(minX, corner.X);
+                minY = Mathf.Min(minY, corner.Y);
+                maxX = Mathf.Max(maxX, corner.X);
+                maxY = Mathf.Max(maxY, corner.Y);
+            }
+        }
+
+        // Add padding
+        const float padding = 10f;
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+
+        int width = (int)(maxX - minX);
+        int height = (int)(maxY - minY);
+
+        // Create temporary viewport for export
+        var exportViewport = new SubViewport
+        {
+            Size = new Vector2I(width, height),
+            TransparentBg = true,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always
+        };
+
+        // Create temporary renderer
+        var exportRenderer = new HexGridRenderer();
+        exportRenderer.Position = new Vector2(-minX, -minY);
+        exportViewport.AddChild(exportRenderer);
+        exportRenderer.Initialize(_grid, _registry);
+        exportRenderer.ShowGrid = false;
+
+        AddChild(exportViewport);
+
+        // Wait for two frames to ensure rendering completes
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
+        // Capture and save
+        var image = exportViewport.GetTexture().GetImage();
+        var error = image.SavePng(path);
+
+        exportViewport.QueueFree();
+
+        if (error == Error.Ok)
+        {
+            GD.Print($"Exported map to: {path}");
+        }
+        else
+        {
+            GD.PrintErr($"Failed to export PNG: {error}");
         }
     }
 
