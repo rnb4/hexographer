@@ -92,7 +92,7 @@ public partial class EditorRoot : Control
         var hSplit = new HSplitContainer
         {
             SizeFlagsVertical = SizeFlags.ExpandFill,
-            SplitOffset = 200
+            SplitOffset = 300
         };
         vbox.AddChild(hSplit);
 

@@ -88,7 +88,7 @@ public partial class TilePalette : VBoxContainer
         // Tab container for layers
         _tabContainer = new TabContainer
         {
-            SizeFlagsVertical = SizeFlags.ExpandFill
+            SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         _tabContainer.TabChanged += OnTabChanged;
         AddChild(_tabContainer);
@@ -152,9 +152,8 @@ public partial class TilePalette : VBoxContainer
             content.AddChild(categoryLabel);
 
             // Grid of tile buttons
-            var grid = new GridContainer
+            var grid = new FlowContainer
             {
-                Columns = 3,
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
             grid.AddThemeConstantOverride("h_separation", 4);

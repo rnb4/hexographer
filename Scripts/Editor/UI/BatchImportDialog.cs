@@ -33,7 +33,7 @@ public partial class BatchImportDialog : Window
     public override void _Ready()
     {
         Title = "Batch Import Tiles";
-        Size = new Vector2I(500, 600);
+        Size = new Vector2I(500, 700);
         Exclusive = true;
         Visible = false;
 
